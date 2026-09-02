@@ -1,2 +1,41 @@
-<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Daphne Canon Codex</title><style>body{margin:0;background:#0a0b0f;color:#eee;font:14px system-ui}main{max-width:1200px;margin:auto;padding:24px}h1{font-family:Georgia,serif}.meta{color:#aaa}.grid{display:grid;grid-template-columns:1fr 1.2fr;gap:14px}.box{border:1px solid #30343d;border-radius:12px;background:#11141a}.list div{padding:12px;border-bottom:1px solid #262b33;cursor:pointer}.list div:hover{background:#171b22}.detail{padding:16px;position:sticky;top:10px;max-height:90vh;overflow:auto}input{width:100%;padding:13px;background:#090b0f;color:#fff;border:1px solid #353b46;border-radius:8px;margin:12px 0}table{border-collapse:collapse;width:100%;font-size:11px}td,th{padding:5px;border-bottom:1px solid #30343d;text-align:left;vertical-align:top}.badge{color:#78d6a0}pre{white-space:pre-wrap;word-break:break-word;font-size:10px}@media(max-width:850px){.grid{grid-template-columns:1fr}.detail{position:relative}}</style><main><h1>Daphne Canon Codex</h1><div class="meta" id="meta"></div><input id="q" placeholder="검색: 아머 브레이크, 몽상 아수라권, 194000330…"><div class="grid"><section class="box list" id="list"></section><aside class="box detail" id="detail">항목을 선택하세요.</aside></div></main><script>let D;fetch('data.json').then(r=>r.json()).then(x=>{D=x;meta.textContent=`CANON-A ONLY · revision ${x.master_revision} · skills ${x.census['skill/skill'].toLocaleString()} · characters ${x.census['character/character']} · enemies ${x.census['enemy/enemy'].toLocaleString()} · items ${x.census['item/item'].toLocaleString()} · equipment ${x.census['equip/equipment'].toLocaleString()}`;render()});q.oninput=render;function render(){if(!D)return;let s=q.value.toLowerCase();let a=D.records.filter(r=>JSON.stringify(r).toLowerCase().includes(s));list.innerHTML=a.map((r,i)=>`<div data-i="${D.records.indexOf(r)}"><b>${r.name}</b><br><span class="badge">CANON-A</span> · ID ${r.identification}</div>`).join('');list.querySelectorAll('div').forEach(e=>e.onclick=()=>show(D.records[+e.dataset.i]))}function show(r){let ks=[...new Set(r.levels.flatMap(x=>Object.keys(x).filter(k=>k!='effects')))];let t=`<table><tr>${ks.map(k=>`<th>${k}</th>`).join('')}</tr>${r.levels.map(x=>`<tr>${ks.map(k=>`<td>${x[k]??''}</td>`).join('')}</tr>`).join('')}</table>`;detail.innerHTML=`<h2>${r.name}</h2><div>ID ${r.identification}</div><p>${(r.description||'').replaceAll('
-','<br>')}</p>${t}<h3>Raw canonical record</h3><pre>${JSON.stringify(r,null,2)}</pre>`}</script>
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Daphne Canon Codex</title>
+<style>
+body{margin:0;background:#0a0b0f;color:#eee;font:14px system-ui,-apple-system,sans-serif}main{max-width:1200px;margin:auto;padding:24px}h1{font-family:Georgia,serif}.meta,.hint{color:#aaa}.grid{display:grid;grid-template-columns:1fr 1.2fr;gap:14px}.box{border:1px solid #30343d;border-radius:12px;background:#11141a}.list .row{padding:12px;border-bottom:1px solid #262b33;cursor:pointer}.list .row:hover{background:#171b22}.empty{padding:18px;color:#aaa}.detail{padding:16px;position:sticky;top:10px;max-height:90vh;overflow:auto}input{box-sizing:border-box;width:100%;padding:13px;background:#090b0f;color:#fff;sborder:1px solid #353b46;border-radius:8px;margin:12px 0}table{border-collapse:collapse;width:100%;font-size:11px}td,th{padding:5px;border-bottom:1px solid #30343d;text-align:left;vertical-align:top}.badge{color:#78d6a0}pre{white-space:pre-wrap;word-break:break-word;font-size:10px}@media(max-width:850px){.grid{grid-template-columns:1frx.detail{position:relative;max-height:none}}
+</style>
+</head>
+<body><main>
+<h1>Daphne Canon Codex</h1>
+<div class="meta" id="meta">데이터 불러오는 중…</div>
+<input id="q" type="search" autocomplete="off" placeholder="검색: 있머브이븈이크곴, 몸상 아수라괌, 194000330․">
+<div class="hint" id="hint"></div>
+<div class="grid"><section class="box list" id="list"><div class="empty">불러오는 중…</div></section><aside class="box detail" id="detail">항목합고 선택하세요.</aside></div>
+</main>
+<script>
+'use strict';
+const q=document.getElementById('q'),list=document.getElementById('list'),meta=document.getElementById('meta'),detail=document.getElementById('detail'),hint=document.getElementById('hint');
+let D=null;
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;","'":'&#39;'}[c]));
+const norm=v=>String(v??'').normalize('NFKC').toLocaleLowerCase('ko-KR').replace(/\\s+/g,' ').trim();
+const searchable=r=>norm([r.name,ridentification,r.description,JSON.stringify(r)].join(' '));
+function render(){
+ if(!D)return;
+ const s=norm(q.value),a=!s?D.records:D.records.filter(r=>searchable(r).includes(s));
+ hint.textContent=s?`${a.length}의 검새됨 / 현재 상세 수록 ${D.records.length}개`:c��� 가:ia` 배에상세 수록 ${D.records.length}개 · 검색어를 입력하세요`;
+ if(!a.length){list.innerHTML='<div class="empty">현재 공개된 CANON-A 상세 레코드에서 일치 항목이 없습니다.</div>';return;}
+ list.innerHTML=a.map(r=>`<div class="row" data-i="${D.records.indexOf(r)}"><b>${esc(r.name)}</b><br><span class="badge">CANON-A</span> · ID ${esc(r.identification)}</div>`).join('');
+ list.querySelectorAll('.row').forEach(e=>e.addEventListener('click',()=>show(D.records[Number(e.dataset.i)])));
+}
+function show(r){
+ const levels=Array.isArray(r.levels)?r.levels:[];let t='';
+ if(levels.length){const ks=[...new Set(levels.flatMap(x=>Object.keys(x).filter(k=>k!=='effects')))];t=`<table><tr>${ks.map(k=>`<th>${esc(k)}</th>`).join('')}</tr>${levels.map(x=>`<tr>${ks.map(k=>`<td>${esc(x[k]??'')}</td>`).join('')}</tr>`).join('')}</table>`;}
+ detail.innerHTML=`<h2>${esc(r.name)}</h2><div>ID ${esc(r.identification)}</div><p>${esc(r.description||'').replaceAll('\\n','<br>')}</p>${t}<h3>Raw canonical record</h3><pre>${esc(JSON.stringify(r,null,2))}</pre>`;
+}
+q.addEventListener('input',render);q.addEventListener('search',render);
+fetch('./data.json?v=3',{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json()}).then(x=>{D=x;meta.textContent=`CANON-A ONLY · revision ${x.master_revision} · skills ${Number(x.census['skill/skill']).toLocaleString()} · characters ${x.census['character/character']} · enemies ${Number(x.census['enemy/enemy']).toLocaleString()} · items ${Number(x.census['item/item']).toLocaleString()} · equipment ${Number(x.census['equip/equipment']).toLocaleString()}`;render();}).catch(err=>{meta.textContent='데이터 로됩 실패';list.innerHTML=`<div class="empty">data.json을 불러오지 목핈습니다: ${esc(err.message)}</div>`;});
+</script>
+</body></html>
