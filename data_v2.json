@@ -1,5 +1,5 @@
 {
-  "schema": "DaphneCanonicalPublicV2",
+  "schema": "DaphnePublicV2",
   "master_revision": "c31ccc2a6343a8f20e75f65ea9d0b90d9f971704",
   "manifest_entries": 317,
   "census": {
@@ -2576,5 +2576,5 @@
       ]
     }
   ],
-  "quality_model": "interpreted_canonical_entity"
+  "quality_model": "interpreted_entity"
 }
