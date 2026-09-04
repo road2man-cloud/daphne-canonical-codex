@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>프리슈 · WT/DPS 최적화</title>
+<style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:#090a0d;color:#eee;font:15px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{max-width:1380px;margin:auto;padding:22px 16px 64px}
+a{color:#8fd3ff;text-decoration:none}a:hover{text-decoration:underline}
+h1{font:700 36px Georgia,serif;margin:8px 0 4px}h2{font:700 24px Georgia,serif;margin:0 0 10px}h3{margin:0 0 8px}
+.muted{color:#aeb3bd}.small{font-size:12px}.hi{font-weight:800;color:#ffd27a}.ok{color:#8fe6ac}.warn{color:#ffca7a}.bad{color:#ff9d9d}
+.panel{border:1px solid #303743;background:#10131a;border-radius:14px;padding:14px;margin:14px 0}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.grid6{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+label{display:block;color:#aeb3bd;margin:2px 0 5px}
+input,select{width:100%;padding:10px;background:#090b0f;color:#fff;border:1px solid #48505d;border-radius:9px;font-size:15px}
+button{padding:10px 13px;background:#171b22;color:#eee;border:1px solid #48505d;border-radius:9px;cursor:pointer}button:hover{border-color:#7a8798}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.pill{display:inline-block;border:1px solid #48505d;border-radius:999px;padding:3px 8px;margin:2px;color:#cbd1db;font-size:12px}
+table{border-collapse:collapse;width:100%;display:block;overflow-x:auto;margin-top:10px}td,th{padding:8px;border-bottom:1px solid #30343d;text-align:left;white-space:nowrap;vertical-align:top}th{color:#cfd5df}.wrap{white-space:normal;min-width:250px;line-height:1.45}.wide{min-width:340px}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.card{border:1px solid #303743;background:#0d1016;border-radius:12px;padding:12px}.card b{display:block;font-size:21px;margin-top:3px}.card span{color:#aeb3bd;font-size:12px}
+.passive-note{margin-top:5px;font-size:12px;color:#aeb3bd;min-height:34px}
+hr{border:0;border-top:1px solid #2b3039;margin:14px 0}
+@media(max-width:1000px){.grid6{grid-template-columns:repeat(3,1fr)}.grid{grid-template-columns:repeat(2,1fr)}.cards{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:620px){main{padding:16px 10px 50px}h1{font-size:30px}.grid,.grid6,.cards{grid-template-columns:1fr 1fr}td,th{padding:7px 6px}}
+</style>
+</head>
+<body><main>
+<nav class="row"><a href="ranking.html">← 랭킹 · 실전비교</a><span class="muted">·</span><a href="index.html">스킬 검색</a></nav><h1>프리슈 · WT/DPS 최적화</h1>
+<p class="muted">프리슈만 따로 계산합니다. 백열권 평타 삽입 위치를 전수 탐색하고, BP·장비 가호·극행속·행속 250 컷·인연 보너스까지 같은 WT 예산에서 비교합니다. 패시브 기본값은 모두 Lv1입니다.</p>
+
+<section class="panel">
+<h2>전투 조건</h2>
+<div class="grid">
+<div><label>WT 예산</label><input id="budget" type="number" min="100" step="100" value="2000"></div>
+<div><label>적 방어</label><input id="enemyDef" type="number" min="0" value="200"></div>
+<div><label>적 회피</label><input id="enemyEvade" type="number" min="0" value="0"></div>
+<div><label>총 BP</label><input id="bpTotal" type="number" min="0" max="30" value="7"></div>
+</div>
+<p class="muted small">행속 250까지는 WT=500-행속으로 1:1 단축합니다. 251~300은 2 행속당 WT 1, 301~360은 4 행속당 WT 1로 완화되는 현재 사이트 공식을 그대로 사용합니다.</p>
+</section>
+
+<section class="panel">
+<h2>스킬 레벨</h2>
+<h3>공격 스킬</h3>
+<div class="grid">
+<div><label>연격</label><select id="reLv"></select></div>
+<div><label>촌경</label><select id="chLv"></select></div>
+<div><label>몽상 아수라권</label><select id="moLv"></select></div>
+<div><label>무기</label><input value="은 세스터스 +20" disabled></div>
+</div>
+<hr>
+<h3>패시브 <span class="muted small">기본 Lv1</span></h3>
+<div class="grid6">
+<div><label>마셜 아츠</label><select id="martialLv"></select><div class="passive-note">행동속도 +2/+4/+8/+12/+16/+20/+25</div></div>
+<div><label>백열권</label><select id="hundredLv"></select><div class="passive-note">평타 후 2행동 WT: 90/89/87/86/84/82/80%</div></div>
+<div><label>천의무봉</label><select id="seamlessLv"></select><div class="passive-note">세스터스 장착 시 공격·명중 증가를 직접 반영</div></div><div><label>임피터스</label><select id="impetusLv"></select><div class="passive-note warn">레벨 선택 가능. 스택 child 수치 의미 확정 전이라 DPS에는 아직 미반영</div></div>
+<div><label>카운터</label><select id="counterLv"></select><div class="passive-note warn">피격/회피 사건이 필요한 반격이라 고정 WT 자가행동 DPS에서는 제외</div></div>
+<div><label>마법방어 증가</label><select id="mdefLv"></select><div class="passive-note">DPS 영향 없음. 세팅 기록용</div></div>
+</div>
+</section>
+
+<section class="panel">
+<h2>인연 보너스</h2>
+<p class="muted small">현재는 인연 이름을 임의로 추정하지 않고, 실제 인연 세팅에서 올라가는 합산값을 직접 넣습니다. 기초 능력치는 BP와 합친 뒤 직업 보정을 거치며, 전투수치는 장비 계산 뒤 최종 가산합니다.</p>
+<div class="grid6">
+<div><label>힘 +</label><input id="bondStr" type="number" value="0"></div>
+<div><label>기교 +</label><input id="bondDex" type="number" value="0"></div>
+<div><label>속도 +</label><input id="bondAgi" type="number" value="0"></div>
+<div><label>운 +</label><input id="bondLuk" type="number" value="0"></div>
+<div><label>공격력 +</label><input id="bondAtk" type="number" value="0"></div>
+<div><label>명중 +</label><input id="bondHit" type="number" value="0"></div>
+</div>
+<div class="grid" style="margin-top:10px">
+<div><label>행동속도 +</label><input id="bondSpd" type="number" value="0"></div>
+<div><label>메모</label><input id="bondMemo" placeholder="예: 사린 Lv? + ○○ 인연"></div>
+</div>
+</section>
+
+<section class="panel">
+<h2>현재 최고 결과</h2>
+<div class="cards" id="summaryCards"></div>
+<p id="calcNote" class="muted small"></p>
+</section>
+
+<section class="panel">
+<h2>세팅 비교</h2><table><thead><tr>
+<th>세팅</th><th>BP (힘/기교/속도/운)</th><th>공격</th><th>명중</th><th>행속</th><th>기본 WT</th><th>행동 수</th><th>사용 WT</th><th>기대 총딜</th><th>100 WT당</th><th>백열권 평타</th><th>최적 행동열</th><th>변경석</th>
+</tr></thead><tbody id="compareBody"></tbody></table>
+<p id="speed250Note" class="muted small"></p>
+</section>
+
+<section class="panel">
+<h2>백열권 운용 경우의 수 · 최고 세팅 기준</h2>
+<p class="muted small">평타를 0회, 1회, 2회… 넣는 고정 규칙이 아니라, 각 평타를 어느 위치에 넣을지까지 모두 탐색합니다. 같은 스킬 수/평타 수라면 피해량은 같으므로, 그 조합에서 WT가 가장 짧아지는 배치를 동적계획법으로 찾습니다.</p>
+<table><thead><tr><th>#</th><th>스킬 행동</th><th>평타</th><th>총 행동</th><th>사용 WT</th><th>기대 총딜</th><th>100 WT당</th><th>행동열</th></tr></thead><tbody id="hfBody"></tbody></table>
+</section>
+
+<section class="panel">
+<h2>장비 가호 모델</h2>
+<p class="muted">5성 자연 부가호 출현확률 기대값 + 전변/정련/+20 성장분을 사용하고, 6부위 각각에서 변경석 1줄을 공격%·공격+·명중%·명중+·행속%·행속+ 중 하나로 바꾸거나 유지하는 경우를 정확히 탐색합니다. 프리슈는 모든 부위가 +20이라 어느 부위에 같은 종류의 변경석을 쓰는지는 수치상 동일하므로, 117,649개 순열 대신 동치인 <b>924개 변경줄 개수 조합</b>을 전수검사합니다.</p>
+<div class="row" id="naturalGear"></div>
+</section>
+
+<section class="panel">
+<h2>계산 가정</h2>
+<p class="muted small">프리슈 Lv70 기준 능력치 STR 96 / DEX 55 / AGI 51 / LUK 58, 타브나지아 직업 보정 공격 110% · 명중 115% · 행속 95%를 사용합니다. 천의무봉과 마셜 아츠는 현재 마스터의 레벨별 수치를 반영합니다. 몽상 아수라권은 현재 랭킹과 동일하게 프리슈 본인판 8타를 사용합니다. 임피터스의 10스택 child parameter는 공격/치명 증가량으로 바로 단정하지 않고, 의미가 확정될 때까지 결과에서 제외합니다. 치명타 자체도 현재 랭킹 DPS 모델에는 아직 포함하지 않습니다.</p>
+</section>
+
+<script src="prishe.js"></script>
+</main></body></html>
