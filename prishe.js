@@ -10,9 +10,10 @@ const HUNDRED=[0,90,89,87,86,84,82,80];
 const SEAMLESS=[null,{atk:5,hit:2},{atk:6,hit:3},{atk:8,hit:5},{atk:9,hit:6},{atk:11,hit:8},{atk:12,hit:9},{atk:15,hit:12}];
 const EFFECTS=['atkP','atkF','hitP','hitF','spdP','spdF'];
 const EFFECT_LABEL={atkP:'공격%',atkF:'공격+',hitP:'명중%',hitF:'명중+',spdP:'행속%',spdF:'행속+'};
+// group 601 · 4성 마스터 중간값. 자연가호는 전변/+20 성장/정련을 모두 반영한다.
 const AFFIX={
- atkP:{base:16.5,full:4,growth:4,refine:5,alter:5},hitP:{base:16.5,full:4,growth:4,refine:5,alter:5},spdP:{base:11.5,full:4,growth:4,refine:5,alter:5},
- atkF:{base:14,full:9,growth:9,refine:6,alter:6},hitF:{base:14,full:9,growth:9,refine:6,alter:6},spdF:{base:10.5,full:4,growth:4,refine:5,alter:5}
+ atkP:{base:13,full:3.5,growth:3.5,refine:4,alter:4},hitP:{base:13,full:3.5,growth:3.5,refine:4,alter:4},spdP:{base:9,full:3.5,growth:3.5,refine:4,alter:4},
+ atkF:{base:10.5,full:8,growth:8,refine:5,alter:5},hitF:{base:10.5,full:8,growth:8,refine:5,alter:5},spdF:{base:8.5,full:3,growth:3,refine:4,alter:4}
 };
 const OCC={
  weapon:{p13:[89.56,66.02,0],p4p:[30.27,22.19,0],p4f:[3.29,2.46,2.33]},
@@ -76,31 +77,48 @@ function statFor(bp,gear){let seamless=SEAMLESS[+num('seamlessLv')]||SEAMLESS[1]
 }
 
 function selectedSkills(){return {re:RE[num('reLv')-1],ch:CH[num('chLv')-1],mo:MO[num('moLv')-1]}}
-function activeDamageCumulative(st,maxN=40){let {re,ch,mo}=selectedSkills(),cycle=[['연격',re],['촌경',ch],['연격',re],['촌경',ch],['몽상',mo]],cum=[0],stage=0,prev='';for(let i=0;i<maxN;i++){let [key,r]=cycle[i%cycle.length],bonus=stage===1?1.10:stage===2?1.15:stage>=3?1.20:1,hits=key==='몽상'?8:WEAPON.attackCount;let d=expectedDamage(st,r,hits,bonus);cum.push(cum[cum.length-1]+d);if(prev&&prev!==key)stage=Math.min(3,stage+1);prev=key;if(key==='몽상')stage=Math.max(0,stage-2)}return cum}
-
-const SCHEDULE_CACHE=new Map();
-function scheduleOptions(init){let B=Math.max(100,num('budget')||2000),hf=HUNDRED[num('hundredLv')]||90,key=[Math.round(init),B,hf].join('|');if(SCHEDULE_CACHE.has(key))return SCHEDULE_CACHE.get(key);let regular=wtDelay(init,100),discount=wtDelay(init,hf),minDelay=Math.min(regular,discount),maxActions=Math.min(80,Math.floor(B/minDelay)+2);let frontier=new Map([['0|0|0',{a:0,m:0,h:0,spent:0,pattern:''}]]),best=new Map([['0|0',{a:0,m:0,spent:0,pattern:''}]]);
- for(let step=0;step<maxActions;step++){let next=new Map();for(const s of frontier.values()){let delay=wtDelay(init,s.h>0?hf:100);for(const kind of ['S','N']){let spent=s.spent+delay;if(spent>B)continue;let a=s.a+(kind==='S'),m=s.m+(kind==='N'),h=kind==='N'?2:Math.max(0,s.h-1),pattern=s.pattern+kind,k2=`${a}|${m}|${h}`,old=next.get(k2);if(!old||spent<old.spent)next.set(k2,{a,m,h,spent,pattern});let pk=`${a}|${m}`,po=best.get(pk);if(!po||spent<po.spent)best.set(pk,{a,m,spent,pattern})}}frontier=next;if(!frontier.size)break}
- let arr=[...best.values()].filter(x=>x.a+x.m>0);SCHEDULE_CACHE.set(key,arr);return arr}
-function patternText(pattern){let names=['연격','촌경','연격','촌경','몽상'],i=0;return [...pattern].map(c=>c==='N'?'평타':names[(i++)%names.length]).join('→')}
-function bestRotation(st,detailed=false){let opts=scheduleOptions(st.initiative),maxA=Math.max(1,...opts.map(x=>x.a)),cum=activeDamageCumulative(st,maxA),nd=normalDamage(st),best=null,all=detailed?[]:null;for(const o of opts){let total=(cum[o.a]||0)+o.m*nd,score=total/Math.max(100,num('budget')||2000)*100,z={...o,total,score,actions:o.a+o.m,avgWt:o.a+o.m?o.spent/(o.a+o.m):0};if(detailed)all.push(z);if(!best||z.total>best.total+1e-9||(Math.abs(z.total-best.total)<1e-9&&z.spent<best.spent))best=z}if(detailed)all.sort((a,b)=>b.total-a.total||a.spent-b.spent);return {best,all}}function bpAllocations(){let t=clamp(Math.round(num('bpTotal')),0,30),out=[];for(let str=0;str<=t;str++)for(let dex=0;dex<=t-str;dex++)for(let agi=0;agi<=t-str-dex;agi++){let luk=t-str-dex-agi;out.push({str,dex,agi,luk})}return out}
+function stageBonus(stage){return stage===1?1.10:stage===2?1.15:stage>=3?1.20:1}
+function nextStage(stage,prev,key){let z=stage;if(key==='mo')z=Math.max(0,z-2);if(prev&&prev!==key)z=Math.min(3,z+1);return z}
+function actionDefs(){let {re,ch,mo}=selectedSkills();return [
+ {key:'ch',label:'촌경',d:(st,b)=>expectedDamage(st,ch,WEAPON.attackCount,b)},
+ {key:'re',label:'연격',d:(st,b)=>expectedDamage(st,re,WEAPON.attackCount,b)},
+ {key:'mo',label:'몽상',d:(st,b)=>expectedDamage(st,mo,8,b)},
+ {key:'normal',label:'평타',d:(st,b)=>normalDamage(st)*b}
+]}
+const ROT_CACHE=new Map();
+function rotationKey(st){return [st.atk,st.hit,st.initiative,num('budget'),num('enemyDef'),num('enemyEvade'),num('reLv'),num('chLv'),num('moLv'),num('hundredLv')].join('|')}
+function betterRotation(a,b){return !b||a.total>b.total+1e-9||(Math.abs(a.total-b.total)<1e-9&&(a.normals<b.normals||(a.normals===b.normals&&a.spent<b.spent)))}
+function bestRotation(st,detailed=false){
+ let ck=rotationKey(st);if(!detailed&&ROT_CACHE.has(ck))return ROT_CACHE.get(ck);let B=Math.max(100,num('budget')||2000),hf=HUNDRED[num('hundredLv')]||90,defs=actionDefs(),memo=new Map();
+ function rec(spent,h,stage,prev){let mk=[spent,h,stage,prev].join('|');if(memo.has(mk))return memo.get(mk);let delay=wtDelay(st.initiative,h>0?hf:100);if(spent+delay>B){let z={total:0,path:[],spent,normals:0};memo.set(mk,z);return z}let best=null;
+  for(const a of defs){if(a.key==='mo'&&stage<2)continue;let nh=h>0?h-1:0;if(a.key==='normal')nh=2;let ns=nextStage(stage,prev,a.key),q=rec(spent+delay,nh,ns,a.key),z={total:a.d(st,stageBonus(stage))+q.total,path:[a.label,...q.path],spent:q.spent,normals:(a.key==='normal'?1:0)+q.normals};if(betterRotation(z,best))best=z}memo.set(mk,best);return best}
+ let rawBest=rec(0,0,0,''),best={...rawBest,actions:rawBest.path.length,score:rawBest.total/B*100,avgWt:rawBest.path.length?rawBest.spent/rawBest.path.length:0};let all=null;
+ if(detailed){let dmemo=new Map();function byNormals(spent,h,stage,prev){let mk=[spent,h,stage,prev].join('|');if(dmemo.has(mk))return dmemo.get(mk);let delay=wtDelay(st.initiative,h>0?hf:100),out=new Map();if(spent+delay>B){out.set(0,{total:0,path:[],spent,normals:0});dmemo.set(mk,out);return out}for(const a of defs){if(a.key==='mo'&&stage<2)continue;let nh=h>0?h-1:0;if(a.key==='normal')nh=2;let qs=byNormals(spent+delay,nh,nextStage(stage,prev,a.key),a.key);for(const [n,q] of qs){let nn=n+(a.key==='normal'?1:0),z={total:a.d(st,stageBonus(stage))+q.total,path:[a.label,...q.path],spent:q.spent,normals:nn},old=out.get(nn);if(betterRotation(z,old))out.set(nn,z)}}dmemo.set(mk,out);return out}all=[...byNormals(0,0,0,'').values()].map(x=>({...x,actions:x.path.length,score:x.total/B*100,avgWt:x.path.length?x.spent/x.path.length:0})).sort((a,b)=>a.normals-b.normals||b.total-a.total)}
+ let out={best,all};if(!detailed)ROT_CACHE.set(ck,out);return out}
+function rotationText(r){return (r.path||[]).join('→')}
+function bpAllocations(){let t=clamp(Math.round(num('bpTotal')),0,30),out=[];for(let str=0;str<=t;str++)for(let dex=0;dex<=t-str;dex++)for(let agi=0;agi<=t-str-dex;agi++){let luk=t-str-dex-agi;out.push({str,dex,agi,luk})}return out}
 function gearText(gs){let a=EFFECTS.filter(e=>gs.counts[e]).map(e=>`${EFFECT_LABEL[e]}×${gs.counts[e]}`);return a.length?a.join(', '):'변경 없음'}
 function evalConfig(bp,gs){let st=statFor(bp,gs.g),rot=bestRotation(st);return {bp,gs,st,rot:rot.best}}
 function betterDps(a,b){return !b||a.rot.total>b.rot.total+1e-9||(Math.abs(a.rot.total-b.rot.total)<1e-9&&a.rot.spent<b.rot.spent)}
 
-function searchAll(){SCHEDULE_CACHE.clear();let bps=bpAllocations(),best=null,maxSpeed=null,maxAttack=null,best250=null;for(const bp of bps){for(const gs of GEAR_STATES){let z=evalConfig(bp,gs);if(betterDps(z,best))best=z;if(!maxSpeed||z.st.initiative>maxSpeed.st.initiative||(z.st.initiative===maxSpeed.st.initiative&&betterDps(z,maxSpeed)))maxSpeed=z;if(!maxAttack||z.st.atk>maxAttack.st.atk||(z.st.atk===maxAttack.st.atk&&betterDps(z,maxAttack)))maxAttack=z;if(z.st.initiative>=250&&betterDps(z,best250))best250=z}}
- let t=clamp(Math.round(num('bpTotal')),0,30),bpStr={str:t,dex:0,agi:0,luk:0},bpAgi={str:0,dex:0,agi:t,luk:0};let bestStr=null,bestAgi=null,extremeSpeed=null,extremeAttack=null;for(const gs of GEAR_STATES){let a=evalConfig(bpStr,gs),b=evalConfig(bpAgi,gs);if(betterDps(a,bestStr))bestStr=a;if(betterDps(b,bestAgi))bestAgi=b;if(!extremeSpeed||b.st.initiative>extremeSpeed.st.initiative||(b.st.initiative===extremeSpeed.st.initiative&&betterDps(b,extremeSpeed)))extremeSpeed=b;if(!extremeAttack||a.st.atk>extremeAttack.st.atk||(a.st.atk===extremeAttack.st.atk&&betterDps(a,extremeAttack)))extremeAttack=a}
- return {best,best250,maxSpeed,maxAttack,bestStr,bestAgi,extremeSpeed,extremeAttack}}
+function paretoConfigs(rows){let uniq=new Map();for(const z of rows){let k=[z.st.atk,z.st.hit,z.st.initiative].join('|');if(!uniq.has(k))uniq.set(k,z)}let arr=[...uniq.values()].sort((a,b)=>b.st.atk-a.st.atk||b.st.hit-a.st.hit||b.st.initiative-a.st.initiative),front=[];outer:for(const z of arr){for(const q of front)if(q.st.hit>=z.st.hit&&q.st.initiative>=z.st.initiative)continue outer;front.push(z)}return front}
+function attachRot(z){if(!z.rot)z.rot=bestRotation(z.st).best;return z}
+function bestFromRows(rows){let best=null;for(const z of paretoConfigs(rows)){attachRot(z);if(betterDps(z,best))best=z}return best}
+function searchAll(){ROT_CACHE.clear();let bps=bpAllocations(),rows=[],maxSpeed=null,maxAttack=null;for(const bp of bps)for(const gs of GEAR_STATES){let z={bp,gs,st:statFor(bp,gs.g),rot:null};rows.push(z);if(!maxSpeed||z.st.initiative>maxSpeed.st.initiative)maxSpeed=z;if(!maxAttack||z.st.atk>maxAttack.st.atk)maxAttack=z}
+ let front=paretoConfigs(rows),best=null,best250=null;for(const z of front){attachRot(z);if(betterDps(z,best))best=z;if(z.st.initiative>=250&&betterDps(z,best250))best250=z}
+ let t=clamp(Math.round(num('bpTotal')),0,30),bpStr={str:t,dex:0,agi:0,luk:0},bpAgi={str:0,dex:0,agi:t,luk:0},strRows=[],agiRows=[];for(const gs of GEAR_STATES){strRows.push({bp:bpStr,gs,st:statFor(bpStr,gs.g),rot:null});agiRows.push({bp:bpAgi,gs,st:statFor(bpAgi,gs.g),rot:null})}
+ let sf=paretoConfigs(strRows),af=paretoConfigs(agiRows),bestStr=null,bestAgi=null,extremeSpeed=null,extremeAttack=null;for(const z of sf){attachRot(z);if(betterDps(z,bestStr))bestStr=z;if(!extremeAttack||z.st.atk>extremeAttack.st.atk||(z.st.atk===extremeAttack.st.atk&&betterDps(z,extremeAttack)))extremeAttack=z}for(const z of af){attachRot(z);if(betterDps(z,bestAgi))bestAgi=z;if(!extremeSpeed||z.st.initiative>extremeSpeed.st.initiative||(z.st.initiative===extremeSpeed.st.initiative&&betterDps(z,extremeSpeed)))extremeSpeed=z}
+ return {best,best250,maxSpeed,maxAttack,bestStr,bestAgi,extremeSpeed,extremeAttack,frontierCount:front.length}}
 
 function bpText(bp){return `${bp.str}/${bp.dex}/${bp.agi}/${bp.luk}`}
-function renderRow(label,z,cls=''){if(!z)return `<tr><td>${label}</td><td colspan="12" class="muted">조건을 만족하는 세팅 없음</td></tr>`;let r=z.rot;return `<tr><td class="${cls}"><b>${label}</b></td><td>${bpText(z.bp)}</td><td>${fmt(z.st.atk)}</td><td>${fmt(z.st.hit)}</td><td class="${z.st.initiative>=250?'ok':''}">${fmt(z.st.initiative)}</td><td>${fmt(wtBaseWait(z.st.initiative))}</td><td>${r.actions}</td><td>${fmt(r.spent)}</td><td class="hi">${fmt(r.total)}</td><td class="hi">${fmt(r.score,1)}</td><td>${r.m}회</td><td class="wrap wide">${patternText(r.pattern)}</td><td class="wrap">${gearText(z.gs)}</td></tr>`}
+function renderRow(label,z,cls=''){if(!z)return `<tr><td>${label}</td><td colspan="12" class="muted">조건을 만족하는 세팅 없음</td></tr>`;let r=z.rot;return `<tr><td class="${cls}"><b>${label}</b></td><td>${bpText(z.bp)}</td><td>${fmt(z.st.atk)}</td><td>${fmt(z.st.hit)}</td><td class="${z.st.initiative>=250?'ok':''}">${fmt(z.st.initiative)}</td><td>${fmt(wtBaseWait(z.st.initiative))}</td><td>${r.actions}</td><td>${fmt(r.spent)}</td><td class="hi">${fmt(r.total)}</td><td class="hi">${fmt(r.score,1)}</td><td>${r.normals}회</td><td class="wrap wide">${rotationText(r)}</td><td class="wrap">${gearText(z.gs)}</td></tr>`}
 
-function render(){let t0=performance.now();let res=searchAll(),z=res.best,r=z.rot;let cards=[['최고 100 WT당',fmt(r.score,1)],['기대 총딜',fmt(r.total)],['행동 / 평타',`${r.actions} / ${r.m}`],['표시 행속',fmt(z.st.initiative)]];$('summaryCards').innerHTML=cards.map(([a,b])=>`<div class="card"><span>${a}</span><b>${b}</b></div>`).join('');
+function render(){let t0=performance.now();let res=searchAll(),z=res.best,r=z.rot;let cards=[['최고 100 WT당',fmt(r.score,1)],['기대 총딜',fmt(r.total)],['행동 / 평타',`${r.actions} / ${r.normals}`],['표시 행속',fmt(z.st.initiative)]];$('summaryCards').innerHTML=cards.map(([a,b])=>`<div class="card"><span>${a}</span><b>${b}</b></div>`).join('');
  let rows=[];rows.push(renderRow('최고 DPS 자동',res.best,'hi'));rows.push(renderRow('극행속 장비 + BP속도',res.extremeSpeed));if(res.best250)rows.push(renderRow('행속 ≥250 중 최고 DPS',res.best250));else rows.push(renderRow('행속 250 컷',null));rows.push(renderRow('극공격 장비 + BP힘',res.extremeAttack));rows.push(renderRow('BP 전부 힘 + DPS장비',res.bestStr));rows.push(renderRow('BP 전부 속도 + DPS장비',res.bestAgi));$('compareBody').innerHTML=rows.join('');
- $('speed250Note').innerHTML=res.best250?`행속 250 이상 도달 가능. 그 영역에서 최고 DPS 세팅의 행속은 <b>${fmt(res.best250.st.initiative)}</b>입니다.`:`현재 입력한 BP·인연 범위와 5성 기대 장비 모델에서는 행속 250에 도달하지 못합니다. 가능한 최대 행속은 <b>${fmt(res.maxSpeed.st.initiative)}</b>입니다. 극행속 결과는 그래도 별도 비교했습니다.`;
- let detail=bestRotation(z.st,true).all;$('hfBody').innerHTML=detail.slice(0,14).map((x,i)=>`<tr><td>${i+1}</td><td>${x.a}</td><td>${x.m}</td><td>${x.actions}</td><td>${fmt(x.spent)}</td><td class="hi">${fmt(x.total)}</td><td>${fmt(x.score,1)}</td><td class="wrap wide">${patternText(x.pattern)}</td></tr>`).join('');
- $('naturalGear').innerHTML=EFFECTS.map(e=>`<span class="pill">자연 ${EFFECT_LABEL[e]} ${fmt(NATURAL[e],1)}</span>`).join('')+`<span class="pill">장비 조합 ${GEAR_STATES.length}개</span>`;
- let ms=performance.now()-t0;$('calcNote').textContent=`정확 탐색 완료 · BP 조합 ${bpAllocations().length.toLocaleString()}개 × 장비 조합 ${GEAR_STATES.length.toLocaleString()}개 · 계산 ${fmt(ms,0)} ms · 임피터스/카운터는 위 설명대로 고정 WT 자가행동 DPS에서 제외.`;
+ $('speed250Note').innerHTML=res.best250?`행속 250 이상 도달 가능. 그 영역에서 최고 DPS 세팅의 행속은 <b>${fmt(res.best250.st.initiative)}</b>입니다.`:`현재 입력한 BP·인연 범위와 4성 기대 장비 모델에서는 행속 250에 도달하지 못합니다. 가능한 최대 행속은 <b>${fmt(res.maxSpeed.st.initiative)}</b>입니다. 극행속 결과는 그래도 별도 비교했습니다.`;
+ let detail=bestRotation(z.st,true).all;$('hfBody').innerHTML=detail.slice(0,14).map((x,i)=>`<tr><td>${i+1}</td><td>${x.actions-x.normals}</td><td>${x.normals}</td><td>${x.actions}</td><td>${fmt(x.spent)}</td><td class="hi">${fmt(x.total)}</td><td>${fmt(x.score,1)}</td><td class="wrap wide">${rotationText(x)}</td></tr>`).join('');
+ $('naturalGear').innerHTML=EFFECTS.map(e=>`<span class="pill">4성 자연 ${EFFECT_LABEL[e]} ${fmt(NATURAL[e],1)}</span>`).join('')+`<span class="pill">장비 조합 ${GEAR_STATES.length}개</span>`;
+ let ms=performance.now()-t0;$('calcNote').textContent=`전 행동열 + 4성 장비 정확 탐색 · BP 조합 ${bpAllocations().length.toLocaleString()}개 × 장비 조합 ${GEAR_STATES.length.toLocaleString()}개 · 계산 ${fmt(ms,0)} ms · 임피터스/카운터는 위 설명대로 고정 WT 자가행동 DPS에서 제외.`;
 }
 let timer=null;document.querySelectorAll('input,select').forEach(el=>el.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(render,80)}));
 render();
