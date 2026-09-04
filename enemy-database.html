@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>적 정보 데이터베이스 | 위저드리 Variants Daphne</title>
+  <meta name="description" content="Steam 런타임 EnemyParameter에서 직접 추출한 적 기초 능력치 데이터베이스" />
+  <link rel="stylesheet" href="./style.css?v=10" />
+  <style>
+    body{max-width:1280px;margin:0 auto;padding:0 16px 48px}.hero{margin:18px 0;padding:18px;border:1px solid #35405a;border-radius:16px;background:#111827}.hero h2{margin:0 0 5px}.muted{color:#99a4b8}.warn{margin-top:12px;padding:10px 12px;border-left:4px solid #e5a849;background:#1b202c;border-radius:8px}.stats{display:grid;grid-template-columns:repeat(5,minmax(100px,1fr));gap:8px;margin:14px 0}.stat{padding:10px;border:1px solid #35405a;border-radius:10px;background:#0d1320}.stat b{display:block;font-size:20px}.tag{display:inline-block;padding:3px 8px;margin:3px;border:1px solid #41506d;border-radius:999px;font-size:12px}.search{width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;border:1px solid #41506d;background:#0d1320;color:#fff;font-size:16px}.table-wrap{overflow:auto;margin-top:12px;border:1px solid #35405a;border-radius:12px}table{width:100%;border-collapse:collapse;min-width:790px}th,td{padding:9px 10px;border-bottom:1px solid #2b3549;text-align:right;white-space:nowrap}th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}th{position:sticky;top:0;background:#151e2d;cursor:pointer}.focus-row{background:#24314a}.detail{margin-top:12px;padding:14px;border:1px solid #35405a;border-radius:12px;background:#0d1320}.detail-grid{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:8px}.kv{padding:8px;border-bottom:1px solid #283246}.kv span{color:#9aa6bb}.source{font-size:12px;color:#8f9bb0;word-break:break-all}@media(max-width:720px){.stats{grid-template-columns:repeat(2,1fr)}.detail-grid{grid-template-columns:1fr}.topbar{align-items:flex-start}.top-actions{flex-wrap:wrap}}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div><h1>적 정보 데이터베이스</h1><p>런타임 EnemyParameter 원시값을 검색합니다.</p></div>
+    <div class="top-actions"><a class="top-link" href="./index.html">&#47700;&#51064; &#53076;&#45937;&#49828;</a><a class="top-link" href="./ranking.html">&#47021;&#53433; · &#49892;&#51204;&#48708;&#44368;</a><a class="top-link" href="./gear-ranking.html">&#51109;&#48708; &#47021;&#53433;</a></div>
+  </header>
+
+  <section id="fireHero" class="hero"><p>화룡 데이터를 불러오는 중…</p></section>
+
+  <section>
+    <h2>전체 적 검색</h2>
+    <p class="muted">이름 또는 Enemy ID로 검색. 표의 DEF/MDEF는 <b>기초값</b>입니다.</p>
+    <input id="q" class="search" placeholder="예: ファイアードラゴン / 1100000006" autocomplete="off" />
+    <p id="count" class="muted"></p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>ID</th><th>이름</th><th>HP</th><th>ATK</th><th>MAG</th><th>DEF</th><th>MDEF</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+    <div id="detail" class="detail muted">행을 누르면 성장값·보정값을 확인할 수 있습니다.</div>
+  </section>
+
+  <section class="hero">
+    <h2>데이터 해석 원칙</h2>
+    <p><span class="tag">확정</span> EnemyParameter에 직접 존재하는 원시 필드만 숫자로 표시합니다.</p>
+    <p><span class="tag">미확정</span> growth/correction을 레벨별 실전 능력치로 바꾸는 공식은 아직 검증 전입니다.</p>
+    <p><span class="tag">주의</span> 약점 코드 65535 등 enum 매핑이 확정되지 않은 값은 의미를 임의로 번역하지 않습니다.</p>
+    <p id="provenance" class="source"></p>
+  </section>
+
+  <script src="./enemy-data.js"></script>
+  <script>
+    const db=window.ENEMY_DATA||{enemies:[],counts:{}};
+    const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const n=v=>v===null||v===undefined?'—':Number(v).toLocaleString('ko-KR',{maximumFractionDigits:4});
+    const fire=db.enemies.find(x=>String(x.id)==='1100000006');
+    if(fire){
+      document.getElementById('fireHero').innerHTML=`
+        <div><span class="tag">Enemy ID ${fire.id}</span><span class="tag">런타임 원시값</span></div>
+        <h2>화룡 <small class="muted">${esc(fire.name)}</small></h2>
+        <div class="stats">
+          <div class="stat"><span>기초 HP</span><b>${n(fire.base_hp)}</b></div>
+          <div class="stat"><span>기초 ATK</span><b>${n(fire.base_attack)}</b></div>
+          <div class="stat"><span>기초 MAG</span><b>${n(fire.base_magic)}</b></div>
+          <div class="stat"><span>기초 DEF</span><b>${n(fire.base_defence)}</b></div>
+          <div class="stat"><span>기초 MDEF</span><b>${n(fire.base_mdefence)}</b></div>
+        </div>
+        <div class="warn"><b>화룡 DEF: 180은 캐노니컬 기초값입니다.</b><br>growth_defence=${n(fire.growth_defence)}, correction_defence=${n(fire.correction_defence)}가 별도 존재하므로 레벨별 실전 DEF와 동일하다고 단정하지 않습니다.</div>
+        <div class="detail-grid">
+          <div class="kv"><span>growth HP</span> ${n(fire.growth_hp)}</div><div class="kv"><span>growth ATK</span> ${n(fire.growth_physical_attack)}</div><div class="kv"><span>growth MAG</span> ${n(fire.growth_magic)}</div>
+          <div class="kv"><span>growth DEF</span> ${n(fire.growth_defence)}</div><div class="kv"><span>growth MDEF</span> ${n(fire.growth_mdefence)}</div><div class="kv"><span>growth ACC</span> ${n(fire.growth_accuracy)}</div>
+          <div class="kv"><span>correction HP</span> ${n(fire.correction_hp)}</div><div class="kv"><span>correction ATK</span> ${n(fire.correction_physical_attack)}</div><div class="kv"><span>correction MAG</span> ${n(fire.correction_magic)}</div>
+          <div class="kv"><span>correction DEF</span> ${n(fire.correction_defence)}</div><div class="kv"><span>correction MDEF</span> ${n(fire.correction_mdefence)}</div><div class="kv"><span>correction ACC</span> ${n(fire.correction_accuracy)}</div>
+        </div>`;
+    }
+    const body=document.getElementById('rows'), detail=document.getElementById('detail'), count=document.getElementById('count');
+    function showDetail(x){
+      const fields=[['growth HP','growth_hp'],['growth ATK','growth_physical_attack'],['growth MAG','growth_magic'],['growth DEF','growth_defence'],['growth MDEF','growth_mdefence'],['growth ACC','growth_accuracy'],['growth DODGE','growth_dodge'],['corr HP','correction_hp'],['corr ATK','correction_physical_attack'],['corr MAG','correction_magic'],['corr DEF','correction_defence'],['corr MDEF','correction_mdefence'],['corr ACC','correction_accuracy'],['corr CRIT','correction_critical_rate'],['action strength','action_strength'],['attack count','base_attack_count'],['attack interval','base_attack_interval'],['range W×H',null],['weak physical code','weak_attack_element_type'],['weak magic code','weak_magic_element_type'],['monster ability','monster_ability'],['size','size']];
+      detail.innerHTML=`<h3>${esc(x.name)} <small class="muted">#${x.id}</small></h3><div class="detail-grid">`+fields.map(([label,key])=>`<div class="kv"><span>${label}</span> ${key?n(x[key]):`${n(x.base_attack_range_width)}×${n(x.base_attack_range_height)}`}</div>`).join('')+`</div>`;
+    }
+    function render(){
+      const term=document.getElementById('q').value.trim().toLowerCase();
+      const list=db.enemies.filter(x=>!term||String(x.id).includes(term)||String(x.name).toLowerCase().includes(term));
+      count.textContent=`${list.length.toLocaleString()} / ${db.enemies.length.toLocaleString()}종 표시`;
+      body.innerHTML=list.map(x=>`<tr data-id="${x.id}" class="${x.id===1100000006?'focus-row':''}"><td>${x.id}</td><td>${esc(x.name)}</td><td>${n(x.base_hp)}</td><td>${n(x.base_attack)}</td><td>${n(x.base_magic)}</td><td>${n(x.base_defence)}</td><td>${n(x.base_mdefence)}</td></tr>`).join('');
+    }
+    document.getElementById('q').addEventListener('input',render);
+    body.addEventListener('click',e=>{const tr=e.target.closest('tr');if(!tr)return;const x=db.enemies.find(v=>String(v.id)===tr.dataset.id);if(x)showDetail(x);});
+    document.getElementById('provenance').textContent=`Source: ${db.source||'—'} | generated ${db.generated_at||'—'} | names ${n(db.counts?.names)} / params ${n(db.counts?.params)} / joined ${n(db.counts?.joined)}`;
+    render(); if(fire)showDetail(fire);
+  </script>
+</body>
+</html>
