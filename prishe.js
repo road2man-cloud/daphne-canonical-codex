@@ -66,7 +66,7 @@ function wtBaseWait(initiative){let s=Math.max(0,Math.round(+initiative||0));if(
 function wtDelay(initiative,rate=100){let base=wtBaseWait(initiative);return Math.max(1,Math.ceil(base*clamp(+rate||100,40,160)/100-.001))}
 function raw(P,r){let f=r.both/100,c=r.capBoth,st=r.start,x;if(st>0&&P<st)x=P*f*.75;else if(c<=0||P<=c)x=P*f;else x=f*(c+(P-c)*.5);return x+r.fixed}
 function expectedDamage(st,r,hits,mult=1){let x=raw(st.atk,r),ed=Math.max(0,num('enemyDef'))*(1-clamp(r.pen||0,0,100)/100);x=Math.max(1,x-ed*.5);let chance=clamp(Math.ceil(st.hit+r.hit-Math.max(0,num('enemyEvade'))-.001),5,99)/100;return x*hits*chance*mult}
-function normalDamage(st){let x=Math.max(1,st.atk-Math.max(0,num('enemyDef'))*.5),chance=clamp(Math.ceil(st.hit+50-Math.max(0,num('enemyEvade'))-.001),5,99)/100;return x*WEAPON.attackCount*chance}
+function normalDamage(st,hits=WEAPON.attackCount){let x=Math.max(1,st.atk-Math.max(0,num('enemyDef'))*.5),chance=clamp(Math.ceil(st.hit+50-Math.max(0,num('enemyEvade'))-.001),5,99)/100;return x*Math.max(1,+hits||1)*chance}
 
 function statFor(bp,gear){let seamless=SEAMLESS[+num('seamlessLv')]||SEAMLESS[1];let str=PRISHE.str+bp.str+num('bondStr'),dex=PRISHE.dex+bp.dex+num('bondDex'),agi=PRISHE.agi+bp.agi+num('bondAgi'),luk=PRISHE.luk+bp.luk+num('bondLuk');
  let baseAtk=Math.ceil(str*PRISHE.atkCorr/100-.001),baseHit=Math.ceil((.7*dex+.3*luk)*PRISHE.hitCorr/100-.001),baseInit=Math.ceil(agi*PRISHE.initCorr/100-.001),equipAtk=WEAPON.base+WEAPON.rein;
@@ -79,11 +79,13 @@ function statFor(bp,gear){let seamless=SEAMLESS[+num('seamlessLv')]||SEAMLESS[1]
 function selectedSkills(){return {re:RE[num('reLv')-1],ch:CH[num('chLv')-1],mo:MO[num('moLv')-1]}}
 function stageBonus(stage){return stage===1?1.10:stage===2?1.15:stage>=3?1.20:1}
 function nextStage(stage,prev,key){let z=stage;if(key==='mo')z=Math.max(0,z-2);if(prev&&prev!==key)z=Math.min(3,z+1);return z}
+function stageHits(stage,dream=false){let base=WEAPON.attackCount+(stage>=3?1:0);return dream?base*2:base}
+function actionDamage(st,a,stage){let mult=stageBonus(stage);if(a.key==='normal')return normalDamage(st,stageHits(stage))*mult;return expectedDamage(st,a.r,stageHits(stage,a.key==='mo'),mult)}
 function actionDefs(){let {re,ch,mo}=selectedSkills();return [
- {key:'ch',label:'촌경',d:(st,b)=>expectedDamage(st,ch,WEAPON.attackCount,b)},
- {key:'re',label:'연격',d:(st,b)=>expectedDamage(st,re,WEAPON.attackCount,b)},
- {key:'mo',label:'몽상',d:(st,b)=>expectedDamage(st,mo,8,b)},
- {key:'normal',label:'평타',d:(st,b)=>normalDamage(st)*b}
+ {key:'ch',label:'촌경',r:ch},
+ {key:'re',label:'연격',r:re},
+ {key:'mo',label:'몽상',r:mo},
+ {key:'normal',label:'평타',r:null}
 ]}
 const ROT_CACHE=new Map();
 function rotationKey(st){return [st.atk,st.hit,st.initiative,num('budget'),num('enemyDef'),num('enemyEvade'),num('reLv'),num('chLv'),num('moLv'),num('hundredLv')].join('|')}
@@ -91,9 +93,9 @@ function betterRotation(a,b){return !b||a.total>b.total+1e-9||(Math.abs(a.total-
 function bestRotation(st,detailed=false){
  let ck=rotationKey(st);if(!detailed&&ROT_CACHE.has(ck))return ROT_CACHE.get(ck);let B=Math.max(100,num('budget')||2000),hf=HUNDRED[num('hundredLv')]||90,defs=actionDefs(),memo=new Map();
  function rec(spent,h,stage,prev){let mk=[spent,h,stage,prev].join('|');if(memo.has(mk))return memo.get(mk);let delay=wtDelay(st.initiative,h>0?hf:100);if(spent+delay>B){let z={total:0,path:[],spent,normals:0};memo.set(mk,z);return z}let best=null;
-  for(const a of defs){if(a.key==='mo'&&stage<2)continue;let nh=h>0?h-1:0;if(a.key==='normal')nh=2;let ns=nextStage(stage,prev,a.key),dmg=a.d(st,stageBonus(stage)),q=rec(spent+delay,nh,ns,a.key),z={total:dmg+q.total,firstDamage:dmg,path:[a.label,...q.path],spent:q.spent,normals:(a.key==='normal'?1:0)+q.normals};if(betterRotation(z,best))best=z}memo.set(mk,best);return best}
+  for(const a of defs){if(a.key==='mo'&&stage<2)continue;let nh=h>0?h-1:0;if(a.key==='normal')nh=2;let ns=nextStage(stage,prev,a.key),dmg=actionDamage(st,a,stage),q=rec(spent+delay,nh,ns,a.key),z={total:dmg+q.total,firstDamage:dmg,path:[a.label,...q.path],spent:q.spent,normals:(a.key==='normal'?1:0)+q.normals};if(betterRotation(z,best))best=z}memo.set(mk,best);return best}
  let rawBest=rec(0,0,0,''),best={...rawBest,actions:rawBest.path.length,score:rawBest.total/B*100,avgWt:rawBest.path.length?rawBest.spent/rawBest.path.length:0};let all=null;
- if(detailed){let dmemo=new Map();function byNormals(spent,h,stage,prev){let mk=[spent,h,stage,prev].join('|');if(dmemo.has(mk))return dmemo.get(mk);let delay=wtDelay(st.initiative,h>0?hf:100),out=new Map();if(spent+delay>B){out.set(0,{total:0,path:[],spent,normals:0});dmemo.set(mk,out);return out}for(const a of defs){if(a.key==='mo'&&stage<2)continue;let nh=h>0?h-1:0;if(a.key==='normal')nh=2;let qs=byNormals(spent+delay,nh,nextStage(stage,prev,a.key),a.key);for(const [n,q] of qs){let nn=n+(a.key==='normal'?1:0),z={total:a.d(st,stageBonus(stage))+q.total,path:[a.label,...q.path],spent:q.spent,normals:nn},old=out.get(nn);if(betterRotation(z,old))out.set(nn,z)}}dmemo.set(mk,out);return out}all=[...byNormals(0,0,0,'').values()].map(x=>({...x,actions:x.path.length,score:x.total/B*100,avgWt:x.path.length?x.spent/x.path.length:0})).sort((a,b)=>a.normals-b.normals||b.total-a.total)}
+ if(detailed){let dmemo=new Map();function byNormals(spent,h,stage,prev){let mk=[spent,h,stage,prev].join('|');if(dmemo.has(mk))return dmemo.get(mk);let delay=wtDelay(st.initiative,h>0?hf:100),out=new Map();if(spent+delay>B){out.set(0,{total:0,path:[],spent,normals:0});dmemo.set(mk,out);return out}for(const a of defs){if(a.key==='mo'&&stage<2)continue;let nh=h>0?h-1:0;if(a.key==='normal')nh=2;let qs=byNormals(spent+delay,nh,nextStage(stage,prev,a.key),a.key);for(const [n,q] of qs){let nn=n+(a.key==='normal'?1:0),z={total:actionDamage(st,a,stage)+q.total,path:[a.label,...q.path],spent:q.spent,normals:nn},old=out.get(nn);if(betterRotation(z,old))out.set(nn,z)}}dmemo.set(mk,out);return out}all=[...byNormals(0,0,0,'').values()].map(x=>({...x,actions:x.path.length,score:x.total/B*100,avgWt:x.path.length?x.spent/x.path.length:0})).sort((a,b)=>a.normals-b.normals||b.total-a.total)}
  let out={best,all};if(!detailed)ROT_CACHE.set(ck,out);return out}
 function rotationText(r){return (r.path||[]).join('→')}
 function bpAllocations(){let t=clamp(Math.round(num('bpTotal')),0,30),out=[];for(let str=0;str<=t;str++)for(let dex=0;dex<=t-str;dex++)for(let agi=0;agi<=t-str-dex;agi++){let luk=t-str-dex-agi;out.push({str,dex,agi,luk})}return out}
