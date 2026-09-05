@@ -124,17 +124,17 @@ const WT_RANGERS=[
 ];
 const WT_SKILL_META={
  194000110:{hit:30,pen:0},117000040:{hit:35,pen:0},194000340:{hit:65,pen:0},194000341:{hit:65,pen:0},
- 140200010:{hit:55,pen:0},140200020:{hit:45,pen:49},194000330:{hit:35,pen:0},110000030:{hit:55,pen:0},110000070:{hit:55,pen:0},
- 194000320:{hit:55,pen:0},194000322:{hit:25,pen:0},194000323:{hit:100,pen:0,fixedHit:true},194000324:{hit:35,pen:0},194000050:{hit:50,pen:50},194000051:{hit:50,pen:0},194000111:{hit:30,pen:0},111000000:{hit:90,pen:0,addCrit:30},110000010:{hit:25,pen:0},116000070:{hit:35,pen:0},116000120:{hit:55,pen:0}
+ 140200010:{hit:55,pen:0},140200020:{hit:45,pen:49},194000330:{hit:35,pen:0},194000331:{hit:35,pen:0},110000030:{hit:55,pen:0},110000070:{hit:55,pen:0},
+ 194000320:{hit:55,pen:0},194000322:{hit:25,pen:0},194000323:{hit:100,pen:0,fixedHit:true},194000324:{hit:35,pen:0},194000325:{hit:55,pen:0},194000050:{hit:50,pen:50},194000051:{hit:50,pen:0},194000111:{hit:30,pen:0},111000000:{hit:90,pen:0,addCrit:30},110000010:{hit:25,pen:0},116000070:{hit:35,pen:0},116000120:{hit:55,pen:0}
 };
 const WT_INHERIT_STORAGE='daphneWtInheritanceV1';
 const WT_INHERIT_CANDIDATES=[
  {key:'astral',id:194000051,label:'아스트럴 브레이크',source:'아르보리스',mode:'계승 전용 감쇠 데이터'},
  {key:'tencha',id:194000111,label:'천자만홍',source:'유즈나미키',mode:'계승 전용 감쇠 데이터'},
- {key:'dream',id:194000330,label:'몽상 아수라권',source:'프리슈',mode:'현재 스킬계수 가정'},
- {key:'moon',id:194000324,label:'아마츠미즈카게류·월륜',source:'이로하',mode:'현재 스킬계수 가정'},
- {key:'abyss',id:194000300,label:'심연의 일격',source:'자이드',mode:'현재 스킬계수 가정'},
- {key:'suigetsu',id:194000390,label:'백야차의 수월',source:'리바나',mode:'현재 스킬계수 가정'}
+ {key:'dream',id:194000331,label:'몽상 아수라권',source:'프리슈',mode:'계승 전용 감쇠 데이터 · 공격횟수 증가 없음'},
+ {key:'hanatoki',id:194000325,label:'아마츠미즈카게류·화시',source:'이로하',mode:'계승 전용 감쇠 데이터 · 연계 변환 없음'},
+ {key:'abyss',id:194000301,label:'심연의 일격',source:'자이드',mode:'계승 전용 감쇠 데이터'},
+ {key:'suigetsu',id:194000391,label:'백야차의 수월',source:'리바나',mode:'계승 전용 감쇠 데이터'}
 ];
 const WT_INHERIT_SPECIAL={194000051:{1:{pen:20,wtRate:85,turns:2},2:{pen:23,wtRate:80,turns:2},3:{pen:27,wtRate:75,turns:2},4:{pen:30,wtRate:71,turns:2},5:{pen:35,wtRate:65,turns:3},6:{pen:39,wtRate:57,turns:3},7:{pen:45,wtRate:50,turns:3}}};
 let wtInheritState={};try{wtInheritState=JSON.parse(localStorage.getItem(WT_INHERIT_STORAGE)||'{}')||{}}catch(_){wtInheritState={}}
