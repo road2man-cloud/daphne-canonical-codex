@@ -64,4 +64,4 @@ optCurrent.addEventListener('click',()=>{formation=bestOf(formation).arr;renderA
 const iframe=document.getElementById('engine');let engineTimer=null;
 function connectEngine(){engineWin=iframe.contentWindow;if(engineTimer)clearInterval(engineTimer);let tries=0;engineTimer=setInterval(()=>{tries++;try{if(engineWin&&typeof engineWin.wtPartyProfileResults==='function'){clearInterval(engineTimer);engineTimer=null;setTimeout(engineProfiles,20);return}}catch(_){}if(tries>120){clearInterval(engineTimer);engineTimer=null;engineState.textContent='WT 엔진 연동 실패 · 수동값만 계산'}},100)}
 iframe.addEventListener('load',connectEngine);renderManual();renderAll();connectEngine();
-</script></main></body></html>
+</script><script src="party-support.js"></script></main></body></html>
